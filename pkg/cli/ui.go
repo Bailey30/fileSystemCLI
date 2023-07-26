@@ -1,4 +1,4 @@
-package screen
+package cli
 
 import (
 	"log"
@@ -27,13 +27,14 @@ func NewError(err string) *Error {
 }
 
 type Ui struct {
-	screen     tcell.Screen
-	xmax, ymax int
-	defStyle   tcell.Style
-	boxStyle   tcell.Style
-	textStyle  tcell.Style
-	highlight  tcell.Style
-	dirHeight  int
+	screen      tcell.Screen
+	xmax, ymax  int
+	defStyle    tcell.Style
+	boxStyle    tcell.Style
+	textStyle   tcell.Style
+	highlight   tcell.Style
+	dirHeight   int
+	searchInput string
 }
 
 func NewUi() *Ui {
@@ -56,20 +57,23 @@ func NewUi() *Ui {
 	xmax, ymax := s.Size()
 
 	return &Ui{
-		screen:    s,
-		xmax:      xmax,
-		ymax:      ymax,
-		defStyle:  defStyle,
-		boxStyle:  boxStyle,
-		textStyle: textStyle,
-		highlight: highlight,
-		dirHeight: ymax - 1,
+		screen:      s,
+		xmax:        xmax,
+		ymax:        ymax,
+		defStyle:    defStyle,
+		boxStyle:    boxStyle,
+		textStyle:   textStyle,
+		highlight:   highlight,
+		dirHeight:   ymax - 1,
+		searchInput: "",
 	}
 }
 
-type SearchBarContent string
+type SearchBarContent struct {
+	Search string
+}
 
-func GetUi(dir *Dir, err2 *Error) error {
+func InitUi(dir *Dir, filteredDir *Dir, err2 *Error) error {
 	ui := NewUi()
 
 	quit := func() {
@@ -93,10 +97,10 @@ func GetUi(dir *Dir, err2 *Error) error {
 	// Event loop
 	for {
 		ui.screen.Clear()
-		drawDir(ui, dir, err2)
+		drawDir(ui, dir, filteredDir, err2)
+		drawSearch(ui)
 		ui.screen.Show()
-		controls(ui, dir) // needs to be after Show()
-		// drawSearch(ui, sbc)
+		controls(ui, dir, filteredDir) // needs to be after Show()
 		// sbc := SearchEvent(ui, searchBarContent)
 		// Update screen
 	}
@@ -114,14 +118,14 @@ func drawText(ui *Ui, dir *Dir, err2 *Error) {
 		index := row + dir.drawBeginning // enables the scroll
 
 		if index < len(dir.files) {
-			drawLine(ui, row, dir.files[index].path, style)
+			drawLine(ui, row, dir.files[index].name, style)
 		}
 
 	}
 
 }
 
-func drawDir(ui *Ui, dir *Dir, err2 *Error) {
+func drawDir(ui *Ui, dir *Dir, filteredDir *Dir, err2 *Error) {
 	// xmax, ymax := ui.xmax, ui.ymax
 
 	// XXX: manual clean without flush to avoid flicker on Windows
@@ -135,17 +139,15 @@ func drawDir(ui *Ui, dir *Dir, err2 *Error) {
 		}
 	}
 
-	// Draw borders
-	// for col := 0; col <= xmax-3; col++ {
-	// 	ui.screen.SetContent(col+1, 0, tcell.RuneHLine, nil, ui.boxStyle)
-	// 	ui.screen.SetContent(col+1, ymax-1, tcell.RuneHLine, nil, ui.boxStyle)
-	// }
-	// for row := 0 + 1; row < ymax; row++ {
-	// 	ui.screen.SetContent(0, row, tcell.RuneVLine, nil, ui.boxStyle)
-	// 	ui.screen.SetContent(xmax-1, row, tcell.RuneVLine, nil, ui.boxStyle)
-	// }
+	directoryToBeDisplayed := &Dir{}
 
-	drawText(ui, dir, err2)
+	if len(ui.searchInput) != 0 {
+		directoryToBeDisplayed = filteredDir
+	} else {
+		directoryToBeDisplayed = dir
+	}
+
+	drawText(ui, directoryToBeDisplayed, err2)
 }
 
 func drawLine(ui *Ui, row int, text string, style tcell.Style) {
@@ -155,7 +157,7 @@ func drawLine(ui *Ui, row int, text string, style tcell.Style) {
 
 }
 
-func drawSearch(ui *Ui, searchBarContent string) {
+func drawSearch(ui *Ui) {
 	wtot, htot := ui.screen.Size()
 	// Fill background
 	for i := 0; i < wtot; i++ {
@@ -168,10 +170,10 @@ func drawSearch(ui *Ui, searchBarContent string) {
 	// Draw borders
 	for col := 0; col <= ui.xmax-3; col++ {
 		// ui.screen.SetContent(col+1, 0, tcell.RuneHLine, nil, ui.boxStyle)
-		ui.screen.SetContent(col, ui.ymax-2, tcell.RuneHLine, nil, ui.textStyle)
+		ui.screen.SetContent(col, htot-2, tcell.RuneHLine, nil, ui.textStyle)
 	}
 
-	for i, r := range searchBarContent {
+	for i, r := range ui.searchInput {
 
 		ui.screen.SetContent(i, htot-1, r, nil, ui.textStyle)
 	}

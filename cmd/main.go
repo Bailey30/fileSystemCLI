@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bailey30/fileSystemCLI/pkg/screen"
+	"github.com/bailey30/fileSystemCLI/pkg/cli"
 )
 
 func main() {
@@ -14,14 +14,17 @@ func main() {
 	}
 	defer logFile.Close()
 	os.Stderr = logFile
-	dirInstance := &screen.Dir{}
+
+	dirInstance := &cli.Dir{}
 	dir, err := dirInstance.NewDir("")
-	error := screen.NewError("")
+	filteredDirectory := &cli.Dir{}
+
+	error := cli.NewError("")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
 	}
-	screen.GetUi(dir, error)
+	cli.InitUi(dir, filteredDirectory, error)
 
 	normalLogFile, err := os.Create("logs.log")
 	if err != nil {

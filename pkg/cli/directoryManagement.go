@@ -1,9 +1,10 @@
-package screen
+package cli
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type file struct {
@@ -21,6 +22,7 @@ type Dir struct {
 
 // create new instance of Dir - only being called once at the moment so path is always ""
 func (dir *Dir) NewDir(path string) (*Dir, error) {
+
 	var nextPath string
 
 	if path == "" {
@@ -82,27 +84,31 @@ func (d *Dir) ReadDir(path string, positionPath string) (string, []*file, int, e
 	return path, files, positionIndex, nil
 }
 
-// Traverses the file system backwards and forwards and update directory being dispayed
-func (dir *Dir) UpdateDirectoryContents(direction Direction, ui *Ui) error {
+// Traverses the file system backwards and forwards and update directory being displayed
+// activeDir is the original dir unless there is a search input
+// Original dir is the only thing that changes
+func (activeDir *Dir) UpdateDirectoryContents(direction Direction, ui *Ui, dir *Dir) error {
+
+	ui.searchInput = ""
 
 	var currentPath, nextDir, positionPath string
 
 	// Checks if there are an files or folders to open
-	if dir.position >= 0 && dir.position < len(dir.files) {
-		currentPath = dir.files[dir.position].path
+	if activeDir.position >= 0 && activeDir.position < len(activeDir.files) {
+		currentPath = activeDir.files[activeDir.position].path
 
 	} else {
-		currentPath = dir.path
+		currentPath = activeDir.path
 	}
 
 	if direction == Backwards {
-		nextDir = filepath.Dir(dir.path)
-		positionPath = dir.path
+		nextDir = filepath.Dir(activeDir.path)
+		positionPath = activeDir.path
 	} else {
 		nextDir = currentPath
 	}
 
-	directoryPath, files, positionIndex, err := dir.ReadDir(nextDir, positionPath)
+	directoryPath, files, positionIndex, err := activeDir.ReadDir(nextDir, positionPath)
 
 	if err != nil {
 		return err
@@ -111,9 +117,7 @@ func (dir *Dir) UpdateDirectoryContents(direction Direction, ui *Ui) error {
 	dir.files = files
 	dir.position = positionIndex // positionIndex represents the index of the file in the array
 
-	fmt.Println("directorypath", directoryPath)
-
-	if positionIndex > ui.ymax {
+	if positionIndex > ui.dirHeight-2 {
 		dir.drawBeginning = positionIndex
 		dir.highlightIndex = 0
 	} else {
@@ -124,10 +128,11 @@ func (dir *Dir) UpdateDirectoryContents(direction Direction, ui *Ui) error {
 	return nil
 }
 
+// moves cursor up and down
 func (dir *Dir) UpdateDirectoryPosition(direction Direction, ui *Ui) {
 	if direction == Down && dir.position < len(dir.files)-1 {
 		dir.position++
-		if dir.highlightIndex < ui.ymax-2 {
+		if dir.highlightIndex < ui.dirHeight-2 {
 			dir.highlightIndex++
 		}
 	} else if direction == Up && dir.position > 0 {
@@ -137,17 +142,38 @@ func (dir *Dir) UpdateDirectoryPosition(direction Direction, ui *Ui) {
 		}
 	}
 
-	dir.handleScroll(ui.ymax)
+	dir.handleScroll(ui.dirHeight)
 
 }
 
 func (dir *Dir) handleScroll(height int) {
-
 	if dir.position > height-3 && dir.highlightIndex == height-2 {
 		dir.drawBeginning++
 		dir.highlightIndex-- // Highlight index has reached the end and should do any further
 	} else if dir.position < dir.drawBeginning && dir.highlightIndex == 0 {
 		dir.drawBeginning--
 	}
+
+}
+
+func (filteredDir *Dir) Filter(dir *Dir, searchInput string) {
+	filtered := make([]*file, 0)
+
+	for _, file := range dir.files {
+		if strings.Contains(strings.ToLower(file.name), searchInput) {
+			filtered = append(filtered, file)
+		}
+	}
+
+	if len(filtered) > 0 {
+		filteredDir.files = filtered
+		filteredDir.path = filtered[0].path
+	} else {
+		filteredDir.files = nil
+		filteredDir.path = ""
+	}
+	filteredDir.position = 0
+	filteredDir.highlightIndex = 0
+	filteredDir.drawBeginning = 0
 
 }
