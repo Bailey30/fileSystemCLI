@@ -15,15 +15,19 @@ func main() {
 	defer logFile.Close()
 	os.Stderr = logFile
 
-	dirInstance := &cli.Dir{}
-	dir, err := dirInstance.NewDir("")
-	filteredDirectory := &cli.Dir{}
+	dir, err := cli.InitDir("")
+	if err != nil {
+		return
+	}
+
+	filteredDirectory, err := cli.InitDir("")
 
 	error := cli.NewError("")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
 	}
+
 	cli.InitUi(dir, filteredDirectory, error)
 
 	normalLogFile, err := os.Create("logs.log")

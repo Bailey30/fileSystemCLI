@@ -3,6 +3,7 @@ package cli
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gdamore/tcell"
 )
@@ -33,8 +34,10 @@ type Ui struct {
 	boxStyle    tcell.Style
 	textStyle   tcell.Style
 	highlight   tcell.Style
+	pathStyle   tcell.Style
 	dirHeight   int
 	searchInput string
+	confirm     bool
 }
 
 func NewUi() *Ui {
@@ -47,8 +50,9 @@ func NewUi() *Ui {
 	}
 	defStyle := tcell.StyleDefault.Background(tcell.ColorSlateGray).Foreground(tcell.ColorIndianRed)
 	boxStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
-	highlight := tcell.StyleDefault.Background(tcell.ColorWhite)
-	textStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	highlight := tcell.StyleDefault.Background(tcell.ColorLimeGreen)
+	textStyle := tcell.StyleDefault.Foreground(tcell.ColorLimeGreen)
+	pathStyle := tcell.StyleDefault.Background(tcell.ColorPink)
 
 	s.SetStyle(defStyle)
 
@@ -64,8 +68,10 @@ func NewUi() *Ui {
 		boxStyle:    boxStyle,
 		textStyle:   textStyle,
 		highlight:   highlight,
-		dirHeight:   ymax - 1,
+		pathStyle:   pathStyle,
+		dirHeight:   ymax - 3,
 		searchInput: "",
+		confirm:     true,
 	}
 }
 
@@ -101,28 +107,47 @@ func InitUi(dir *Dir, filteredDir *Dir, err2 *Error) error {
 		drawSearch(ui)
 		ui.screen.Show()
 		controls(ui, dir, filteredDir) // needs to be after Show()
-		// sbc := SearchEvent(ui, searchBarContent)
-		// Update screen
 	}
 }
 
 func drawText(ui *Ui, dir *Dir, err2 *Error) {
 
-	for row := 0; row < len(dir.files); row++ {
+	// directory path
+	for row := 0; row < 1; row++ {
+		drawLine(ui, row, dir.path, ui.pathStyle)
+	}
+
+	// list of files and folders
+	for row := dir.topOffset; row <= ui.dirHeight-dir.topOffset; row++ {
 
 		style := ui.textStyle
 		if row == dir.highlightIndex {
 			style = ui.highlight
 		}
 
-		index := row + dir.drawBeginning // enables the scroll
+		index := row + dir.drawBeginning - dir.topOffset // enables the scroll
 
 		if index < len(dir.files) {
-			drawLine(ui, row, dir.files[index].name, style)
+			drawLine(ui, row, formatName(dir.files[index].name), style)
 		}
 
 	}
 
+}
+func drawLine(ui *Ui, row int, text string, style tcell.Style) {
+	for col, rune := range []rune(text) {
+		ui.screen.SetContent(col, row, rune, nil, style)
+	}
+}
+
+func formatName(name string) string {
+	split := strings.Split(name, ".")
+
+	if len(split) == 1 {
+		return name + "/"
+	} else {
+		return name
+	}
 }
 
 func drawDir(ui *Ui, dir *Dir, filteredDir *Dir, err2 *Error) {
@@ -132,49 +157,38 @@ func drawDir(ui *Ui, dir *Dir, filteredDir *Dir, err2 *Error) {
 	wtot, htot := ui.screen.Size()
 
 	// Fill background
-	for i := 0; i < wtot; i++ {
-		for j := 0; j < htot; j++ {
+	for row := 0; row < htot; row++ {
+		for col := 0; col < wtot; col++ {
 
-			ui.screen.SetContent(i, j, ' ', nil, ui.boxStyle)
+			ui.screen.SetContent(col, row, ' ', nil, ui.boxStyle)
 		}
 	}
 
-	directoryToBeDisplayed := &Dir{}
+	directoryToBeDisplayed := dir
 
-	if len(ui.searchInput) != 0 {
+	if len(ui.searchInput) > 0 && !IsRunningCommand((ui)) {
 		directoryToBeDisplayed = filteredDir
-	} else {
-		directoryToBeDisplayed = dir
 	}
 
 	drawText(ui, directoryToBeDisplayed, err2)
 }
 
-func drawLine(ui *Ui, row int, text string, style tcell.Style) {
-	for col, rune := range []rune(text) {
-		ui.screen.SetContent(col, row, rune, nil, style)
-	}
-
-}
-
 func drawSearch(ui *Ui) {
 	wtot, htot := ui.screen.Size()
 	// Fill background
-	for i := 0; i < wtot; i++ {
-		for j := htot - 1; j < htot; j++ {
-
+	for i := 0; i < htot; i++ {
+		for j := wtot - 1; j < htot; j++ {
 			ui.screen.SetContent(i, j, ' ', nil, ui.boxStyle)
 		}
 	}
 
 	// Draw borders
-	for col := 0; col <= ui.xmax-3; col++ {
+	for col := 0; col <= ui.xmax-2; col++ {
 		// ui.screen.SetContent(col+1, 0, tcell.RuneHLine, nil, ui.boxStyle)
 		ui.screen.SetContent(col, htot-2, tcell.RuneHLine, nil, ui.textStyle)
 	}
 
 	for i, r := range ui.searchInput {
-
 		ui.screen.SetContent(i, htot-1, r, nil, ui.textStyle)
 	}
 	// drawLine(ui, htot-1, searchBarContent, ui.textStyle)

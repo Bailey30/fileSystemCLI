@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gdamore/tcell"
 )
@@ -13,47 +15,127 @@ const (
 	Down
 	Forwards
 	Backwards
+	Jump
+	Refresh
 )
 
-func controls(ui *Ui, dir *Dir, filteredDir *Dir) {
+func IsRunningCommand(ui *Ui) bool {
+	splitInput := strings.Split(ui.searchInput, " ")
+	isCommand := false
 
+	if ui.searchInput[0] == '/' && len(splitInput) > 0 || ui.searchInput[0] == 'n' {
+		isCommand = true
+	}
+
+	return isCommand
+}
+
+func controls(ui *Ui, dir *Dir, filteredDir *Dir) {
+	// splitInput := strings.Split(ui.searchInput, " ")
 	var activeDir = dir
-	if len(ui.searchInput) != 0 {
+	if len(ui.searchInput) > 0 && !IsRunningCommand((ui)) {
 		activeDir = filteredDir
 	}
+
+	// if len(ui.searchInput) != 0 {
+	// 	// activeDir = filteredDir
+	// 	fmt.Println("chat", ui.searchInput[0])
+	// }
 
 	// Poll event
 	ev := ui.screen.PollEvent()
 
-	// Process event
-	switch ev := ev.(type) {
-	case *tcell.EventResize:
-		ui.screen.Sync()
-	case *tcell.EventKey:
-		switch ev.Key() {
-		case tcell.KeyUp:
-			activeDir.UpdateDirectoryPosition(Up, ui)
-		case tcell.KeyDown:
-			activeDir.UpdateDirectoryPosition(Down, ui)
-		case tcell.KeyEscape:
-			ui.screen.Fini()
-			os.Exit(0)
-		case tcell.KeyLeft:
-			activeDir.UpdateDirectoryContents(Backwards, ui, dir)
-		case tcell.KeyRight:
-			activeDir.UpdateDirectoryContents(Forwards, ui, dir)
-		case tcell.KeyRune:
-			// If a printable character is pressed, update the search bar content
-			ui.searchInput += string(ev.Rune())
-			filteredDir.Filter(dir, ui.searchInput)
+	switch ui.confirm {
+	case true:
 
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			// If the Backspace key is pressed, remove the last character from the search bar content
-			if len(ui.searchInput) > 0 {
-				ui.searchInput = ui.searchInput[:len(ui.searchInput)-1]
+		// Process event
+		switch ev := ev.(type) {
+		case *tcell.EventResize:
+			ui.screen.Sync()
+			w, h := ui.screen.Size()
+			ui.xmax = w
+			ui.ymax = h
+			ui.dirHeight = h - 1
+		case *tcell.EventKey:
+
+			switch ev.Key() {
+			case tcell.KeyUp:
+				activeDir.UpDown(Up, ui)
+			case tcell.KeyDown:
+				activeDir.UpDown(Down, ui)
+			case tcell.KeyEscape:
+				ui.screen.Fini()
+				os.Exit(0)
+			case tcell.KeyLeft:
+				activeDir.Traverse(Backwards, ui, dir)
+			case tcell.KeyRight:
+				activeDir.Traverse(Forwards, ui, dir)
+			case tcell.KeyRune:
+
+				fmt.Println(ev.Rune())
+				if ev.Key() == 'd' {
+
+					fmt.Println(ev.Key())
+				}
+				// If a printable character is pressed, update the search bar content
+				ui.searchInput += string(ev.Rune())
+				filteredDir.Filter(dir, ui.searchInput)
+
+			case tcell.KeyBackspace, tcell.KeyBackspace2:
+
+				// If the Backspace key is pressed, remove the last character from the search bar content
+				if len(ui.searchInput) > 0 {
+					ui.searchInput = ui.searchInput[:len(ui.searchInput)-1]
+				}
+				filteredDir.Filter(dir, ui.searchInput)
+			case tcell.KeyEnter:
+
+				if len(ui.searchInput) > 0 {
+					split := strings.Split(ui.searchInput, " ")
+
+					if split[0] == "/" {
+						JumpToDirectory(ui, dir)
+					}
+
+					if split[0] == "/n" {
+						dir.create(split[1], ui)
+					}
+
+					if split[0] == "/d" {
+						dir.Delete(ui)
+					}
+
+				}
 			}
-			filteredDir.Filter(dir, ui.searchInput)
+		}
 
+	case false:
+		switch ev := ev.(type) {
+		case *tcell.EventResize:
+			ui.screen.Sync()
+			w, h := ui.screen.Size()
+			ui.xmax = w
+			ui.ymax = h
+			ui.dirHeight = h - 1
+		case *tcell.EventKey:
+
+			switch ev.Key() {
+
+			case tcell.KeyEscape:
+				ui.screen.Fini()
+				os.Exit(0)
+			case tcell.KeyRune:
+				// If a printable character is pressed, update the search bar content
+				ui.searchInput += string(ev.Rune())
+				filteredDir.Filter(dir, ui.searchInput)
+
+				if ev.Key() == 'y' {
+					dir.ConfirmDelete(ui)
+				} else if ev.Key() == 'n' {
+					dir.CancelDelete(ui)
+				}
+
+			}
 		}
 	}
 
