@@ -245,15 +245,8 @@ func (dir *Dir) create(name string, ui *Ui) {
 }
 
 func (dir *Dir) Delete(ui *Ui) {
-	// filename := dir.files[dir.position].path
-
-	// err := os.Remove(filename)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 	ui.confirm = false
 	ui.searchInput = "Confirm delete y/n"
-
 }
 
 func (dir *Dir) ConfirmDelete(ui *Ui) {
@@ -266,6 +259,7 @@ func (dir *Dir) ConfirmDelete(ui *Ui) {
 
 	ui.confirm = true
 	ui.searchInput = ""
+	dir.Traverse(Refresh, ui, dir)
 }
 
 func (dir *Dir) CancelDelete(ui *Ui) {
