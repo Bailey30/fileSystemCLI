@@ -275,22 +275,23 @@ func (dir *Dir) CancelDelete(ui *Ui) {
 	ui.searchInput = ""
 }
 
-func (dir *Dir) Open() {
+func (dir *Dir) Open(window string) {
 	filename := dir.files[dir.position].path
 	splitname := strings.Split(filename, ".")
-	fmt.Println(filename)
-	// fmt.Println(splitname[1])
 	if len(splitname) > 1 {
-
-		cmd := exec.Command("code", dir.files[dir.position].path)
-		fmt.Println(cmd)
-		err := cmd.Start()
-		if err != nil {
-			fmt.Println(err)
+		var args []string
+		if window == "new" {
+			args = []string{"--new-window", filename}
+		} else {
+			args = []string{filename}
 		}
-
-		err = cmd.Wait()
-		if err != nil {
+		cmd := exec.Command("code", args...)
+		fmt.Println(cmd)
+		if err := cmd.Start(); err != nil {
+			fmt.Println(err)
+			return
+		}
+		if err := cmd.Wait(); err != nil {
 			fmt.Println(err)
 		}
 	}

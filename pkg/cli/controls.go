@@ -97,7 +97,12 @@ func controls(ui *Ui, dir *Dir, filteredDir *Dir) {
 					}
 
 				} else {
-					activeDir.Open()
+					activeDir.Open("new")
+				}
+			case tcell.KeyHome:
+				{
+					activeDir.Open("same")
+
 				}
 			}
 		}
