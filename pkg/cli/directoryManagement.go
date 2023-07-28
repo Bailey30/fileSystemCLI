@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -173,7 +174,7 @@ func (dir *Dir) handleScroll(height int) {
 	//
 	if dir.position > height-dir.topOffset-1-1 && dir.highlightIndex == height-dir.topOffset {
 		dir.drawBeginning++
-		dir.highlightIndex-- // Highlight index has reached the end and should do any further
+		dir.highlightIndex-- // Highlight index has reached the end and should not go any further
 	} else if dir.position < dir.drawBeginning+dir.topOffset && dir.highlightIndex == 0 {
 		dir.drawBeginning--
 		dir.highlightIndex++
@@ -181,17 +182,24 @@ func (dir *Dir) handleScroll(height int) {
 }
 
 func (filteredDir *Dir) Filter(dir *Dir, searchInput string) {
-	filtered := make([]*file, 0)
+	filtered := make(chan *file)
 
-	for _, file := range dir.files {
-
-		if strings.Contains(strings.ToLower(file.name), searchInput) {
-			filtered = append(filtered, file)
+	go func() {
+		for _, file := range dir.files {
+			if strings.Contains(strings.ToLower(file.name), searchInput) {
+				filtered <- file
+			}
 		}
+		close(filtered)
+	}()
+
+	filteredFiles := []*file{}
+	for file := range filtered {
+		filteredFiles = append(filteredFiles, file)
 	}
 
-	if len(filtered) > 0 {
-		filteredDir.files = filtered
+	if len(filteredFiles) > 0 {
+		filteredDir.files = filteredFiles
 		// filteredDir.path = filtered[0].path
 	} else {
 		filteredDir.files = nil
@@ -265,4 +273,25 @@ func (dir *Dir) ConfirmDelete(ui *Ui) {
 func (dir *Dir) CancelDelete(ui *Ui) {
 	ui.confirm = true
 	ui.searchInput = ""
+}
+
+func (dir *Dir) Open() {
+	filename := dir.files[dir.position].path
+	splitname := strings.Split(filename, ".")
+	fmt.Println(filename)
+	// fmt.Println(splitname[1])
+	if len(splitname) > 1 {
+
+		cmd := exec.Command("code", dir.files[dir.position].path)
+		fmt.Println(cmd)
+		err := cmd.Start()
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = cmd.Wait()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }

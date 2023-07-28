@@ -84,22 +84,20 @@ func controls(ui *Ui, dir *Dir, filteredDir *Dir) {
 				filteredDir.Filter(dir, ui.searchInput)
 
 			case tcell.KeyEnter:
+				split := strings.Split(ui.searchInput, " ")
+				fmt.Println(split)
 
 				if len(ui.searchInput) > 0 {
-					split := strings.Split(ui.searchInput, " ")
-
 					if split[0] == "/" {
 						JumpToDirectory(ui, dir)
-					}
-
-					if split[0] == "/n" {
+					} else if split[0] == "/n" {
 						dir.create(split[1], ui)
-					}
-
-					if split[0] == "/d" {
+					} else if split[0] == "/d" {
 						dir.Delete(ui)
 					}
 
+				} else {
+					activeDir.Open()
 				}
 			}
 		}
